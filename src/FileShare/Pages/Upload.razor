@@ -150,8 +150,8 @@
             }
 
             _isLoading = false;
-            Clear();
             Snackbar.Add($"Successfully uploaded {_fileComponents.Count} files", Severity.Success);
+            Clear();
         }
         catch (Exception ex)
         {
