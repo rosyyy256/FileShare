@@ -49,7 +49,7 @@
 
 @code {
     private long _maxFileSize;
-    private int _maxFilesCount;
+    private int _maxFilesCountPerInput;
     private const int _bufferSize = 512 * 1024;
     private bool _isLoading;
     private List<FileUploadModel> fileComponents = new();
@@ -59,13 +59,19 @@
         var settings = Settings.Value;
 
         _maxFileSize = settings.MaxFileSize;
-        _maxFilesCount = settings.MaxFilesCount;
+        _maxFilesCountPerInput = settings.MaxFilesCountPerInput;
     }
 
     private void OnInputFilesChanged(InputFileChangeEventArgs e)
     {
         _isLoading = true;
-        foreach (var file in e.GetMultipleFiles(_maxFilesCount))
+        if (e.FileCount > _maxFilesCountPerInput)
+        {
+            Snackbar.Add($"Max {_maxFilesCountPerInput} files per input allowed", Severity.Warning);
+            _isLoading = false;
+            return;
+        }
+        foreach (var file in e.GetMultipleFiles(_maxFilesCountPerInput))
         {
             var uploadFile = new FileUploadModel(file);
             if (fileComponents.Contains(uploadFile))
