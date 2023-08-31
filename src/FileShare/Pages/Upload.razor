@@ -1,0 +1,150 @@
+﻿@page "/upload"
+@using FileShare.Configuration;
+@using FileShare.Models;
+@using Microsoft.Extensions.Options;
+@using static FileShare.Models.FileUploadModel;
+@inject ISnackbar Snackbar
+@inject FilesContext db
+@inject IOptions<ApplicationSettings> Settings
+
+@if (fileComponents.Any())
+{
+    <MudTable Items="@fileComponents"
+          Hover=true
+          Loading="@_isLoading">
+        <HeaderContent>
+            <MudTh>File name</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.File.Name</MudTd>
+            <MudTd>
+                @if (_isLoading)
+                {
+                    @context.RenderFragment
+                }
+                else
+                {
+                    <MudIconButton Icon="@Icons.Material.Rounded.Delete" Color="Color.Error" OnClick="() => RemoveFile(context)" />
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+<MudToolBar DisableGutters="true" Class="gap-4">
+    <MudFileUpload T="IReadOnlyList<IBrowserFile>" OnFilesChanged="OnInputFilesChanged" AppendMultipleFiles>
+        <ButtonTemplate>
+            <MudButton HtmlTag="label"
+                       Variant="Variant.Filled"
+                       Disabled="_isLoading"
+                       for="@context">
+                Choose files
+            </MudButton>
+        </ButtonTemplate>
+    </MudFileUpload>
+    <MudButton Class="mt-2" OnClick="UploadFiles" Disabled="@(!fileComponents.Any() || _isLoading)" Color="Color.Primary" Variant="Variant.Filled">Upload</MudButton>
+    <MudButton Class="mt-2" OnClick="Clear" Disabled="@(!fileComponents.Any() || _isLoading)" Color="Color.Error" Variant="Variant.Filled">Clear</MudButton>
+</MudToolBar>
+
+@code {
+    private long _maxFileSize;
+    private int _maxFilesCount;
+    private const int _bufferSize = 512 * 1024;
+    private bool _isLoading;
+    private List<FileUploadModel> fileComponents = new();
+
+    protected override void OnInitialized()
+    {
+        var settings = Settings.Value;
+
+        _maxFileSize = settings.MaxFileSize;
+        _maxFilesCount = settings.MaxFilesCount;
+    }
+
+    private void OnInputFilesChanged(InputFileChangeEventArgs e)
+    {
+        _isLoading = true;
+        foreach (var file in e.GetMultipleFiles(_maxFilesCount))
+        {
+            var uploadFile = new FileUploadModel(file);
+            if (fileComponents.Contains(uploadFile))
+            {
+                Snackbar.Add($"{uploadFile.File.Name} already in list");
+                continue;
+            }
+            fileComponents.Add(uploadFile);
+        }
+        _isLoading = false;
+    }
+
+    private void RemoveFile(FileUploadModel file)
+    {
+        fileComponents.Remove(file);
+    }
+
+    private void Clear()
+    {
+        fileComponents.Clear();
+    }
+
+    private async Task UploadFiles()
+    {
+        try
+        {
+            _isLoading = true;
+            fileComponents.ForEach(fc => fc.SetState(new WaitingState()));
+
+            // Update UI every 0.5s
+            using var timer = new Timer(_ => InvokeAsync(() => StateHasChanged()));
+            timer.Change(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+
+            foreach (var fileComponent in fileComponents)
+            {
+                var file = fileComponent.File;
+                if (file.Size > _maxFileSize)
+                {
+                    Snackbar.Add($"{file.Name} is too big");
+                    continue;
+                }
+
+                try
+                {
+                    using var stream = file.OpenReadStream(_maxFileSize);
+
+                    var uploadStream = await db.OpenUploadStreamAsync(file.Name);
+
+                    var buffer = new byte[_bufferSize];
+                    int bytesRead;
+                    long totalBytesRead = 0;
+                    long fileSize = file.Size;
+
+                    var percentageState = new PercentageState();
+
+                    while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) != 0)
+                    {
+                        totalBytesRead += bytesRead;
+                        percentageState.Value = (int)(100 * totalBytesRead / fileSize);
+                        fileComponent.SetState(percentageState);
+                        await uploadStream.WriteAsync(buffer, 0, bytesRead);
+                    }
+
+                    await uploadStream.CloseAsync();
+                    fileComponent.SetState(new UploadedState());
+                }
+                catch (Exception)
+                {
+                    Snackbar.Add($"Failed to upload {file.Name}", Severity.Error);
+                    fileComponent.SetState(new ErrorState());
+                }
+            }
+
+            _isLoading = false;
+            Clear();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Something went wrong", Severity.Error);
+        }
+    }
+}

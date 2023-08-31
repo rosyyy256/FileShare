@@ -1,0 +1,62 @@
+﻿@page "/"
+@using FileShare.Models;
+@using FileShare.Services;
+@using MongoDB.Bson;
+@using MongoDB.Driver;
+@inject FilesContext db
+@inject NavigationManager NavigationManager
+@inject ThrowawayDictionary<ObjectId> ThrowawayDict
+@inject ISnackbar Snackbar
+
+<PageTitle>File Share</PageTitle>
+
+@if (files.Any())
+{
+    <MudTable Items="@files">
+        <HeaderContent>
+            <MudTh>File name</MudTh>
+            <MudTh>Upload time</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.UploadedAt.ToString("g")</MudTd>
+            <MudTd>
+                <MudButtonGroup Variant="Variant.Outlined">
+                    <MudIconButton Icon="@Icons.Material.Rounded.Download" Href="@($"/file/{context.Id}")" />
+                    <MudIconButton Icon="@Icons.Material.Rounded.IosShare" OnClick="() => ShareFile(context.Id)" />
+                    <MudIconButton Icon="@Icons.Material.Rounded.DeleteForever" Color="Color.Error" OnClick="() => DeleteFile(context)" />
+                </MudButtonGroup>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else
+{
+    <MudText>
+        Looks like there is no files. You can upload files <MudLink Href="/upload">here</MudLink>
+    </MudText>
+}
+
+@code {
+    private List<FileModel> files = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var dbFiles = await db.GetFilesInfoAsync();
+        files = dbFiles.Select(f => new FileModel(f)).ToList();
+    }
+
+    private async Task DeleteFile(FileModel file)
+    {
+        await db.DeleteFileAsync(file.Id);
+        files.Remove(file);
+    }
+
+    private void ShareFile(ObjectId id)
+    {
+        var throwawayId = ThrowawayDict.Create(id);
+        var link = $"{NavigationManager.BaseUri}file/{throwawayId}";
+        Snackbar.Add(link, Severity.Success);
+    }
+}
