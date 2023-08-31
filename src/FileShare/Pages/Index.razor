@@ -3,7 +3,7 @@
 @using FileShare.Services;
 @using MongoDB.Bson;
 @using MongoDB.Driver;
-@inject FilesContext db
+@inject FilesContext Database
 @inject NavigationManager NavigationManager
 @inject ThrowawayDictionary<ObjectId> ThrowawayDict
 @inject ISnackbar Snackbar
@@ -43,13 +43,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var dbFiles = await db.GetFilesInfoAsync();
+        var dbFiles = await Database.GetFilesInfoAsync();
         _files = dbFiles.Select(f => new FileModel(f)).ToList();
     }
 
     private async Task DeleteFile(FileModel file)
     {
-        await db.DeleteFileAsync(file.Id);
+        await Database.DeleteFileAsync(file.Id);
         _files.Remove(file);
     }
 

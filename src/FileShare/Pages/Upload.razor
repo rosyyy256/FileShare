@@ -4,8 +4,9 @@
 @using Microsoft.Extensions.Options;
 @using static FileShare.Models.FileUploadModel;
 @inject ISnackbar Snackbar
-@inject FilesContext db
-@inject IOptions<ApplicationSettings> Settings
+@inject FilesContext Database
+@inject IOptions<ApplicationSettings> ApplicationOptions
+@inject ILogger<Upload> Logger
 
 @if (_fileComponents.Any())
 {
@@ -56,7 +57,7 @@
 
     protected override void OnInitialized()
     {
-        var settings = Settings.Value;
+        var settings = ApplicationOptions.Value;
 
         _maxFileSize = settings.MaxFileSize;
         _maxFilesCount = settings.MaxFilesCount;
@@ -120,7 +121,7 @@
                 {
                     using var stream = file.OpenReadStream(_maxFileSize);
 
-                    var uploadStream = await db.OpenUploadStreamAsync(file.Name);
+                    var uploadStream = await Database.OpenUploadStreamAsync(file.Name);
 
                     var buffer = new byte[_bufferSize];
                     int bytesRead;
@@ -140,10 +141,11 @@
                     await uploadStream.CloseAsync();
                     fileComponent.SetState(new UploadedState());
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     Snackbar.Add($"Failed to upload {file.Name}", Severity.Error);
                     fileComponent.SetState(new ErrorState());
+                    Logger.LogError(ex, "Failed to upload {FileName}", file.Name);
                 }
             }
 
@@ -151,9 +153,10 @@
             Clear();
             Snackbar.Add($"Successfully uploaded {_fileComponents.Count} files", Severity.Success);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             Snackbar.Add("Something went wrong", Severity.Error);
+            Logger.LogError(ex, "Error while uploading files");
         }
     }
 }
