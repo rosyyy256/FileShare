@@ -7,9 +7,9 @@
 @inject FilesContext db
 @inject IOptions<ApplicationSettings> Settings
 
-@if (fileComponents.Any())
+@if (_fileComponents.Any())
 {
-    <MudTable Items="@fileComponents"
+    <MudTable Items="@_fileComponents"
           Hover=true
           Loading="@_isLoading">
         <HeaderContent>
@@ -43,55 +43,57 @@
             </MudButton>
         </ButtonTemplate>
     </MudFileUpload>
-    <MudButton Class="mt-2" OnClick="UploadFiles" Disabled="@(!fileComponents.Any() || _isLoading)" Color="Color.Primary" Variant="Variant.Filled">Upload</MudButton>
-    <MudButton Class="mt-2" OnClick="Clear" Disabled="@(!fileComponents.Any() || _isLoading)" Color="Color.Error" Variant="Variant.Filled">Clear</MudButton>
+    <MudButton Class="mt-2" OnClick="UploadFiles" Disabled="@(!_fileComponents.Any() || _isLoading)" Color="Color.Primary" Variant="Variant.Filled">Upload</MudButton>
+    <MudButton Class="mt-2" OnClick="Clear" Disabled="@(!_fileComponents.Any() || _isLoading)" Color="Color.Error" Variant="Variant.Filled">Clear</MudButton>
 </MudToolBar>
 
 @code {
     private long _maxFileSize;
-    private int _maxFilesCountPerInput;
+    private int _maxFilesCount;
     private const int _bufferSize = 512 * 1024;
     private bool _isLoading;
-    private List<FileUploadModel> fileComponents = new();
+    private List<FileUploadModel> _fileComponents = new();
 
     protected override void OnInitialized()
     {
         var settings = Settings.Value;
 
         _maxFileSize = settings.MaxFileSize;
-        _maxFilesCountPerInput = settings.MaxFilesCountPerInput;
+        _maxFilesCount = settings.MaxFilesCount;
     }
 
     private void OnInputFilesChanged(InputFileChangeEventArgs e)
     {
         _isLoading = true;
-        if (e.FileCount > _maxFilesCountPerInput)
+        if (e.FileCount > _maxFilesCount)
         {
-            Snackbar.Add($"Max {_maxFilesCountPerInput} files per input allowed", Severity.Warning);
+            Snackbar.Add($"Max {_maxFilesCount} files per input allowed", Severity.Warning);
             _isLoading = false;
             return;
         }
-        foreach (var file in e.GetMultipleFiles(_maxFilesCountPerInput))
+
+        var files = e.GetMultipleFiles(_maxFilesCount).Take(_maxFilesCount - _fileComponents.Count);
+        foreach (var file in files)
         {
-            var uploadFile = new FileUploadModel(file);
-            if (fileComponents.Contains(uploadFile))
+            var fileUploadModel = new FileUploadModel(file);
+            if (_fileComponents.Contains(fileUploadModel))
             {
-                Snackbar.Add($"{uploadFile.File.Name} already in list");
+                Snackbar.Add($"{fileUploadModel.File.Name} already in list");
                 continue;
             }
-            fileComponents.Add(uploadFile);
+            _fileComponents.Add(fileUploadModel);
         }
         _isLoading = false;
     }
 
     private void RemoveFile(FileUploadModel file)
     {
-        fileComponents.Remove(file);
+        _fileComponents.Remove(file);
     }
 
     private void Clear()
     {
-        fileComponents.Clear();
+        _fileComponents.Clear();
     }
 
     private async Task UploadFiles()
@@ -99,13 +101,13 @@
         try
         {
             _isLoading = true;
-            fileComponents.ForEach(fc => fc.SetState(new WaitingState()));
+            _fileComponents.ForEach(fc => fc.SetState(new WaitingState()));
 
             // Update UI every 0.5s
             using var timer = new Timer(_ => InvokeAsync(() => StateHasChanged()));
             timer.Change(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
 
-            foreach (var fileComponent in fileComponents)
+            foreach (var fileComponent in _fileComponents)
             {
                 var file = fileComponent.File;
                 if (file.Size > _maxFileSize)
@@ -147,6 +149,7 @@
 
             _isLoading = false;
             Clear();
+            Snackbar.Add($"Successfully uploaded {_fileComponents.Count} files", Severity.Success);
         }
         catch (Exception)
         {

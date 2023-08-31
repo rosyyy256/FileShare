@@ -37,7 +37,11 @@ public class FilesContext
 
     public async Task DeleteFileAsync(ObjectId fileId)
     {
-        await _bucket.DeleteAsync(fileId);
+        try
+        {
+            await _bucket.DeleteAsync(fileId);
+        }
+        catch { }
     }
 
     public async Task<GridFSUploadStream> OpenUploadStreamAsync(string fileName) => await _bucket.OpenUploadStreamAsync(fileName);

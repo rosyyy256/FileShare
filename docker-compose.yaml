@@ -13,7 +13,7 @@ services:
     environment:
       - MONGOSETTINGS__CONNECTIONSTRING=mongodb://mongodb:27017
       - MONGOSETTINGS__DATABASE=files
-      - MAXFILESCOUNTPERINPUT=5
+      - MAXFILESCOUNT=5
       - MAXFILESIZE=20971520
     ports:
       - 8080:80

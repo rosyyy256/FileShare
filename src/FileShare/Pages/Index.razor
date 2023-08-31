@@ -10,9 +10,9 @@
 
 <PageTitle>File Share</PageTitle>
 
-@if (files.Any())
+@if (_files.Any())
 {
-    <MudTable Items="@files">
+    <MudTable Items="@_files">
         <HeaderContent>
             <MudTh>File name</MudTh>
             <MudTh>Upload time</MudTh>
@@ -39,18 +39,18 @@ else
 }
 
 @code {
-    private List<FileModel> files = new();
+    private List<FileModel> _files = new();
 
     protected override async Task OnInitializedAsync()
     {
         var dbFiles = await db.GetFilesInfoAsync();
-        files = dbFiles.Select(f => new FileModel(f)).ToList();
+        _files = dbFiles.Select(f => new FileModel(f)).ToList();
     }
 
     private async Task DeleteFile(FileModel file)
     {
         await db.DeleteFileAsync(file.Id);
-        files.Remove(file);
+        _files.Remove(file);
     }
 
     private void ShareFile(ObjectId id)
