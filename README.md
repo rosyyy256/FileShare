@@ -14,8 +14,8 @@ Application is written on Blazor Server. MubBlazor lib is used for UI. Files are
 |:----                          |:----                  |:----
 |MongoSettings:ConnectionString |`mongo://[HOST]:[PORT]`|Mongo URI
 |MongoSettings:Database         |`<string>`             |Mongo database name
-|MaxFilesCount                  |`<int>`                |Max files count allowed for a single upload. Default -                                                        104,857,600 (100MB)
-|MaxFileSize                    |`<long>`               |Max size for a single file in bytes. Defalut - 10
+|MaxFilesCount                  |`<int>`                |Max files count allowed for a single upload. Default - 10
+|MaxFileSize                    |`<long>`               |Max size for a single file in bytes. Defalut - 104,857,600 (100MB)
 
 ## Local launch
 
